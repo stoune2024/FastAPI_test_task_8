@@ -25,13 +25,10 @@ class UsersStore(metaclass=SingletonMeta):
 
     @property
     def users_store(self):
-        # print(self._users_store)
         return self._users_store
 
     def __call__(self, user_dict):
-        # print(self._users_store)
         self._users_store.append(user_dict)
-        # print(self._users_store)
 
 
 users_store_instance = UsersStore()
@@ -65,6 +62,12 @@ class DatabaseConnection:
 
     def read_users(self):
         return users_store_instance.users_store
+
+    def read_user_by_id(self, user_id):
+        users_list = users_store_instance.users_store
+        for i in users_list:
+            if i['id'] == user_id:
+                return i
 
 
 def get_connection():

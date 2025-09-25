@@ -1,7 +1,8 @@
 from apps.user.routers import user_router
 from apps.user.schemas import UserPublic, UserCreate, User
 from apps.user.repository import ConnectionDep
-from fastapi import Form, Query
+from fastapi import Form, Query, Path, HTTPException
+from fastapi.exceptions import ResponseValidationError
 from typing import Annotated
 from passlib.context import CryptContext
 
@@ -31,30 +32,48 @@ def create_user(
         return {"message": f"something_went_wrong...{e}"}
 
 
-@user_router.get(
-    "/users/",
-    # response_model=list[UserPublic]
-)
+@user_router.get("/users/",response_model=list[UserPublic])
 def read_users(
     connection: ConnectionDep,
-    offset: Annotated[
-        int,
-        Query(
-            title="Отступ для списка пользователей",
-            ge=0,
-            le=1000,
-        ),
-    ] = 0,
-    limit: Annotated[
-        int, Query(title="Ограначитель списка пользователей", ge=0, le=1000)
-    ] = 10,
 ):
     """
-    Эндпоинт получения списка пользователей.
+    Эндпоинт получения списка всех пользователей.
     :param connection: Объект типа Connection (соединение) для взаимодействия с БД
-    :param offset: Отступ для списка пользователей (условно их максимум 1000). Используется для пагинации
-    :param limit: Ограничитель максимального количества отображаемых пользователей. Используется для пагинации.
     :return: Список пользователей, валидированных моделью UserPublic
     """
-    list_of_users = connection.read_users()
-    return list_of_users
+    try:
+        list_of_users = connection.read_users()
+        return list_of_users
+    except Exception as e:
+        return {"message": f"something_went_wrong...{e}"}
+
+
+@user_router.get("/users/{user_id}", response_model=UserPublic)
+def update_user(
+        connection: ConnectionDep,
+        user_id: Annotated[
+            int,
+            Path(
+                title='Идентификатор пользователя',
+                ge=0,
+                le=1000
+            )
+        ],
+):
+    """
+    Эндпоинт получения конкретного пользователя по идентификатору из БД.
+    :param connection: Объект типа Connection (соединение) для взаимодействия с БД
+    :param user_id: Параметр пути, обозначающий идентификатор искомого пользователя.
+    :return: Объект пользователь, валидируемый моделью UserPublic
+    """
+    try:
+        user_dict = connection.read_user_by_id(user_id)
+        if not user_dict:
+            raise HTTPException(status_code=404, detail="Пользователь не найден")
+        return user_dict
+    except ResponseValidationError:
+        return {"message": "Фастапи ругается на какую-то &$*^ю"}
+    except Exception as e:
+        return {"message": f"something_went_wrong...{e}"}
+
+

@@ -4,15 +4,9 @@ from pydantic import (
     Field,
     EmailStr,
     field_validator,
-    ValidationError,
     ConfigDict,
 )
 from pydantic.alias_generators import to_camel
-from pydantic.dataclasses import dataclass
-from enum import Enum
-from typing import Any
-from datetime import date
-from settings.settings import settings
 
 unique_user_ids_list = []
 
