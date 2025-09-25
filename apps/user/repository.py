@@ -60,14 +60,19 @@ class DatabaseConnection:
         user_dict = user.model_dump()
         users_store_instance(user_dict)
 
-    def read_users(self):
-        return users_store_instance.users_store
+
 
     def read_user_by_id(self, user_id):
         users_list = users_store_instance.users_store
         for i in users_list:
-            if i['id'] == user_id:
+            if i["id"] == user_id:
                 return i
+
+    def read_users(self, start, end):
+        users_list = users_store_instance.users_store
+        if start == None and end == None:
+            return users_list
+        return users_list[start - 1 : end]
 
 
 def get_connection():

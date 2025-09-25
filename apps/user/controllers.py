@@ -1,7 +1,7 @@
 from apps.user.routers import user_router
 from apps.user.schemas import UserPublic, UserCreate, User
 from apps.user.repository import ConnectionDep
-from fastapi import Form, Query, Path, HTTPException
+from fastapi import Form, Query, Path, HTTPException, Body
 from fastapi.exceptions import ResponseValidationError
 from typing import Annotated
 from passlib.context import CryptContext
@@ -9,7 +9,7 @@ from passlib.context import CryptContext
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
-@user_router.post("/users/")
+@user_router.post("/user/")
 def create_user(
     user: Annotated[UserCreate, Form()],
     connection: ConnectionDep,
@@ -32,33 +32,39 @@ def create_user(
         return {"message": f"something_went_wrong...{e}"}
 
 
-@user_router.get("/users/",response_model=list[UserPublic])
-def read_users(
+@user_router.post("/users/")
+def create_users(
+    users: Annotated[list[UserCreate], Body()],
     connection: ConnectionDep,
 ):
     """
-    Эндпоинт получения списка всех пользователей.
+    Эндпоинт создания группы пользователей
+    :param users: Список пользователей, пришедших из тела запроса
     :param connection: Объект типа Connection (соединение) для взаимодействия с БД
-    :return: Список пользователей, валидированных моделью UserPublic
+    :return: JSON-объект, сообщающий о результате выполнения эндпоинта и возвращающий список пользователей
     """
     try:
-        list_of_users = connection.read_users()
-        return list_of_users
+
+        list_of_users = []
+        for user in users:
+            user_dict = user.model_dump()
+            hashed_password = pwd_context.hash(user.password)
+            extra_data = {"hashed_password": hashed_password}
+            user_dict.update(extra_data)
+            list_of_users.append(user_dict)
+            user_model = User.model_validate(user_dict)
+            connection.create_user(user_model)
+        return {"message": f"Пользователи созданы!: {list_of_users}"}
+
     except Exception as e:
-        return {"message": f"something_went_wrong...{e}"}
+        return {"message": f"Произошла ошибка: {e}"}
+
 
 
 @user_router.get("/users/{user_id}", response_model=UserPublic)
-def update_user(
-        connection: ConnectionDep,
-        user_id: Annotated[
-            int,
-            Path(
-                title='Идентификатор пользователя',
-                ge=0,
-                le=1000
-            )
-        ],
+def read_user(
+    connection: ConnectionDep,
+    user_id: Annotated[int, Path(title="Идентификатор пользователя", ge=0, le=1000)],
 ):
     """
     Эндпоинт получения конкретного пользователя по идентификатору из БД.
@@ -77,3 +83,37 @@ def update_user(
         return {"message": f"something_went_wrong...{e}"}
 
 
+@user_router.get("/users/", response_model=list[UserPublic])
+def read_users_list(
+    connection: ConnectionDep,
+    start_index: Annotated[
+        int,
+        Query(
+            title="Начало поиска",
+            description="ID пользователя, с которого начать поиск",
+            ge=0,
+            le=1000,
+        ),
+    ] = None,
+    end_index: Annotated[
+        int,
+        Query(
+            title="Конец поиска",
+            description="ID пользователя, которым закончить поиск",
+            ge=0,
+            le=1000,
+        ),
+    ] = None,
+):
+    """
+    Эндпоинт получения списка пользователей по списку ID.
+    :param connection: Объект типа Connection (соединение) для взаимодействия с БД
+    :param start_index: Значение ID, с которого начинается поиск пользователей
+    :param end_index: Значение ID, которым заканчивается поиск пользователей.
+    :return: Список пользователей, валидированных моделью UserPublic
+    """
+    try:
+        users_list = connection.read_users(start_index, end_index)
+        return users_list
+    except Exception as e:
+        return {"message": f"Возникла ошибка: {e}"}
