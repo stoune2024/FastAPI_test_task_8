@@ -37,6 +37,12 @@ class DatabaseConnection:
             if i["id"] == user_id:
                 return i
 
+    def read_user_by_username(self, username):
+        users_list = users_store_instance.users_store
+        for i in users_list:
+            if i["username"] == username:
+                return i
+
     def read_users(self, start, end):
         users_list = users_store_instance.users_store
         if start is None and end is None:

@@ -1,3 +1,7 @@
+from functools import lru_cache
+from typing import Annotated
+
+from fastapi import Depends
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 import os
@@ -24,5 +28,12 @@ class Settings(BaseSettings):
             f"{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
         )
 
-
 settings = Settings()
+
+
+@lru_cache()
+def get_settings():
+    return settings
+
+
+SettingsDep = Annotated[Settings, Depends(get_settings)]
