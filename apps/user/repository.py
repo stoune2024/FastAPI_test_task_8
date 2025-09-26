@@ -2,7 +2,7 @@ from typing import Annotated, Any
 from fastapi import Depends
 from pydantic.dataclasses import dataclass
 from settings.settings import settings
-from apps.user.schemas import UserCreate, User
+from apps.user.schemas import User
 
 
 class SingletonMeta(type):
@@ -59,8 +59,6 @@ class DatabaseConnection:
     def create_user(self, user: User):
         user_dict = user.model_dump()
         users_store_instance(user_dict)
-
-
 
     def read_user_by_id(self, user_id):
         users_list = users_store_instance.users_store

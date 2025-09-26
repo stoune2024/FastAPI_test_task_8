@@ -44,7 +44,6 @@ def create_users(
     :return: JSON-объект, сообщающий о результате выполнения эндпоинта и возвращающий список пользователей
     """
     try:
-
         list_of_users = []
         for user in users:
             user_dict = user.model_dump()
@@ -58,7 +57,6 @@ def create_users(
 
     except Exception as e:
         return {"message": f"Произошла ошибка: {e}"}
-
 
 
 @user_router.get("/users/{user_id}", response_model=UserPublic)
@@ -115,5 +113,36 @@ def read_users_list(
     try:
         users_list = connection.read_users(start_index, end_index)
         return users_list
+    except Exception as e:
+        return {"message": f"Возникла ошибка: {e}"}
+
+
+@user_router.patch("/users/{user_id}", response_model=UserPublic)
+def update_user(
+    user_id: Annotated[int, Path(title="Идентификатор пользователя", ge=0, le=1000)],
+    user: Annotated[UserCreate, Form()],
+    connection: ConnectionDep,
+):
+    """
+    Эндпоинт обновления данных о пользователе.
+    :param user_id: Параметр пути, обозначающий идентификатор искомого пользователя.
+    :param user: Данные о пользователе, приходящие из HTML формы. Валидируются Pydantic моделью UserUpdate
+    :param connection: Объект типа Connection (соединение) для взаимодействия с БД
+    :return: Объект пользователь, валидируемый моделью UserPublic
+    """
+    try:
+        user_from_db = connection.read_user_by_id(user_id)
+        if not user_from_db:
+            raise HTTPException(status_code=404, detail="Пользователь не найден")
+        user_data = user.model_dump(exclude_unset=True)
+        extra_data = {}
+        if "password" in user_data:
+            password = user_data["password"]
+            hashed_password = pwd_context.hash(password)
+            extra_data["hashed_password"] = hashed_password
+        del user_data["password"]
+        user_from_db.update(user_data)
+        user_from_db.update(extra_data)
+        return user_from_db
     except Exception as e:
         return {"message": f"Возникла ошибка: {e}"}
