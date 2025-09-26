@@ -1,6 +1,6 @@
 from apps.user.routers import user_router
 from apps.user.schemas import UserPublic, UserCreate, User
-from apps.user.repository import ConnectionDep
+from apps.user.services import ConnectionDep
 from fastapi import Form, Query, Path, HTTPException, Body
 from fastapi.exceptions import ResponseValidationError
 from typing import Annotated

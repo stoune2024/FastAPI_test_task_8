@@ -9,6 +9,9 @@ class Settings(BaseSettings):
     DB_USER: str = Field(default="postgres")
     DB_PASS: str = Field(default="postgres")
     DB_NAME: str = Field(default="postgres")
+    SECRET_KEY: str
+    ALGORITHM: str
+    ACCESS_TOKEN_EXPIRE_MINUTES: int
 
     model_config = SettingsConfigDict(
         env_file=f"{os.path.dirname(os.path.abspath(__file__))}/../.env"
