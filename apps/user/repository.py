@@ -46,15 +46,15 @@ class DatabaseConnection:
         try:
             print(f"Подключение к базе данных с URL: {settings.db_url}")
             return self
-        except:
-            print("Ошибка при подключении к БД")
+        except Exception as e:
+            print(f"Ошибка при подключении к БД: {e}")
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         try:
             print(f"Отключение от базы данных с URL: {settings.db_url}")
             print("Отключение от базы данных")
-        except:
-            print("Ошибка при разрыве подключения с БД")
+        except Exception as e:
+            print(f"Ошибка при разрыве подключения с БД: {e}")
 
     def create_user(self, user: User):
         user_dict = user.model_dump()
@@ -68,7 +68,7 @@ class DatabaseConnection:
 
     def read_users(self, start, end):
         users_list = users_store_instance.users_store
-        if start == None and end == None:
+        if start is None and end is None:
             return users_list
         return users_list[start - 1 : end]
 

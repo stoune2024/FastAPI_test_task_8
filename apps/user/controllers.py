@@ -150,15 +150,8 @@ def update_user(
 
 @user_router.delete("/users/{user_id}")
 def delete_user(
-        user_id: Annotated[
-            int,
-            Path(
-                title='Идентификатор пользователя',
-                ge=0,
-                le=1000
-            )
-        ],
-        connection: ConnectionDep
+    user_id: Annotated[int, Path(title="Идентификатор пользователя", ge=0, le=1000)],
+    connection: ConnectionDep,
 ):
     """
     Эндпоинт удаления данных о конкретном пользователе
