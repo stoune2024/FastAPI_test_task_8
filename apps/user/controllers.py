@@ -146,3 +146,26 @@ def update_user(
         return user_from_db
     except Exception as e:
         return {"message": f"Возникла ошибка: {e}"}
+
+
+@user_router.delete("/users/{user_id}")
+def delete_user(
+        user_id: Annotated[
+            int,
+            Path(
+                title='Идентификатор пользователя',
+                ge=0,
+                le=1000
+            )
+        ],
+        connection: ConnectionDep
+):
+    """
+    Эндпоинт удаления данных о конкретном пользователе
+    :param user_id: Параметр пути, обозначающий идентификатор искомого пользователя.
+    :param connection: Объект типа Connection (соединение) для взаимодействия с БД
+    :return: JSON-объект, сообщающий о результате выполнения эндпоинта (возврат пользователя)
+    """
+
+    connection.delete_user(user_id)
+    return {"message": f"User with ID: {user_id} has been deleted succesfully"}

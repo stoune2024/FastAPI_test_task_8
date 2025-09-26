@@ -72,6 +72,12 @@ class DatabaseConnection:
             return users_list
         return users_list[start - 1 : end]
 
+    def delete_user(self, user_id):
+        users_list = users_store_instance.users_store
+        for i in users_list:
+            if i["id"] == user_id:
+                users_list.remove(i)
+
 
 def get_connection():
     with DatabaseConnection(settings.db_url) as connection:
