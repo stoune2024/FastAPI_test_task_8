@@ -159,6 +159,8 @@ def delete_user(
     :param connection: Объект типа Connection (соединение) для взаимодействия с БД
     :return: JSON-объект, сообщающий о результате выполнения эндпоинта (возврат пользователя)
     """
-
-    connection.delete_user(user_id)
-    return {"message": f"User with ID: {user_id} has been deleted succesfully"}
+    try:
+        connection.delete_user(user_id)
+        return {"message": f"User with ID: {user_id} has been deleted succesfully"}
+    except Exception as e:
+        return {"message": f"Возникла ошибка: {e}"}
