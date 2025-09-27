@@ -1,12 +1,10 @@
-from apps.user.routers import user_router
+from apps.user.routers import user_router, middleware_protected_router
 from apps.user.schemas import UserPublic, UserCreate, User
 from apps.user.services import ConnectionDep
 from fastapi import Form, Query, Path, HTTPException, Body
 from fastapi.exceptions import ResponseValidationError
 from typing import Annotated
-from passlib.context import CryptContext
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+from apps.auth.services import pwd_context, ProtectionDep
 
 
 @user_router.post("/user/")
@@ -36,24 +34,27 @@ def create_user(
 def create_users(
     users: Annotated[list[UserCreate], Body()],
     connection: ConnectionDep,
+    protection: ProtectionDep
 ):
     """
     Эндпоинт создания группы пользователей
+    :param protection: Объект типа TokenData. Нужен для проверки авторизации пользователя.
     :param users: Список пользователей, пришедших из тела запроса
     :param connection: Объект типа Connection (соединение) для взаимодействия с БД
     :return: JSON-объект, сообщающий о результате выполнения эндпоинта и возвращающий список пользователей
     """
     try:
-        list_of_users = []
-        for user in users:
-            user_dict = user.model_dump()
-            hashed_password = pwd_context.hash(user.password)
-            extra_data = {"hashed_password": hashed_password}
-            user_dict.update(extra_data)
-            list_of_users.append(user_dict)
-            user_model = User.model_validate(user_dict)
-            connection.create_user(user_model)
-        return {"message": f"Пользователи созданы!: {list_of_users}"}
+        if protection:
+            list_of_users = []
+            for user in users:
+                user_dict = user.model_dump()
+                hashed_password = pwd_context.hash(user.password)
+                extra_data = {"hashed_password": hashed_password}
+                user_dict.update(extra_data)
+                list_of_users.append(user_dict)
+                user_model = User.model_validate(user_dict)
+                connection.create_user(user_model)
+            return {"message": f"Пользователи созданы!: {list_of_users}"}
 
     except Exception as e:
         return {"message": f"Произошла ошибка: {e}"}

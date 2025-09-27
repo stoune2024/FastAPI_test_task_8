@@ -1,26 +1,19 @@
-from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from typing import Annotated, Optional
-from functools import lru_cache
 
 import jwt
-from fastapi import APIRouter, HTTPException, status, Depends, Request
-from fastapi.responses import RedirectResponse
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi import HTTPException, status, Depends, Request
+from fastapi.security import OAuth2PasswordBearer
 from fastapi.security.utils import get_authorization_scheme_param
 from jwt.exceptions import InvalidTokenError
 from passlib.context import CryptContext
-from pydantic import BaseModel
-from sqlalchemy.exc import InvalidRequestError
-from sqlmodel import create_engine, Session, select, SQLModel
-
-from settings.settings import settings
-from apps.auth.routers import auth_router
-from apps.auth.controllers import ConnectionDep, SettingsDep
+from apps.user.services import ConnectionDep
+from settings.settings import SettingsDep
+from apps.auth.schemas import TokenData
 
 
 class OAuth2PasswordBearerWithCookie(OAuth2PasswordBearer):
-    """ Расширяет функционал класса OAuth2PasswordBearer с целью получения JWT-токена из Cookie"""
+    """Расширяет функционал класса OAuth2PasswordBearer с целью получения JWT-токена из Cookie"""
 
     async def __call__(self, request: Request) -> Optional[str]:
         authorization = request.headers.get("Authorization")
@@ -36,7 +29,7 @@ class OAuth2PasswordBearerWithCookie(OAuth2PasswordBearer):
                 else:
                     return None
             return param
-        token = request.cookies.get('access-token')
+        token = request.cookies.get("access-token")
         if token:
             param = token
             return param
@@ -54,22 +47,14 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearerWithCookie(tokenUrl="token")
 
 
-
-def get_password_hash(password):
-    return pwd_context.hash(password)
-
-
 def verify_password(plain_password, hashed_password):
     """
-Функция проверки соответствия полученного пароля и хранимого хеша
+    Функция проверки соответствия полученного пароля и хранимого хеша
     """
     return pwd_context.verify(plain_password, hashed_password)
 
 
-def get_user(
-        username: str,
-        connection: ConnectionDep
-):
+def get_user(username: str, connection: ConnectionDep):
     """
     Функция получения информации о пользователе из БД
     :param username: Логин пользователя
@@ -79,7 +64,7 @@ def get_user(
     try:
         user = connection.read_user_by_username(username)
         return user
-    except InvalidRequestError:
+    except Exception:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Пользователь не найден",
@@ -87,11 +72,7 @@ def get_user(
         )
 
 
-def authenticate_user(
-        username: str,
-        password: str,
-        connection: ConnectionDep
-):
+def authenticate_user(username: str, password: str, connection: ConnectionDep):
     """
     Функция аутентификации пользователя
     :param username: Логин пользователя
@@ -100,7 +81,7 @@ def authenticate_user(
     :return: Пользователь, валидированный моделью User
     """
     user = get_user(username, connection)
-    if not verify_password(password, user.hashed_password):
+    if not verify_password(password, user["hashed_password"]):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Введен неверный пароль",
@@ -110,9 +91,9 @@ def authenticate_user(
 
 
 def create_access_token(
-        settings: SettingsDep,
-        data: dict,
-        expires_delta: timedelta | None = None,
+    settings: SettingsDep,
+    data: dict,
+    expires_delta: timedelta | None = None,
 ):
     """
     Функция создания JWT-токена
@@ -127,19 +108,30 @@ def create_access_token(
     else:
         expire = datetime.now(timezone.utc) + timedelta(minutes=15)
     to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, settings.secret_key, algorithm=settings.algorithm)
+    encoded_jwt = jwt.encode(
+        to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM
+    )
     return encoded_jwt
 
 
 async def verify_token(
-        settings: SettingsDep,
-        token: Annotated[str, Depends(oauth2_scheme)],
-        request: Request,
-        session: SessionDep
+    settings: SettingsDep,
+    token: Annotated[str, Depends(oauth2_scheme)],
+    request: Request,
+    connection: ConnectionDep,
 ):
-    """ Функция проверки JWT-токена пользователя и возврата токена с username пользователя, если все в порядке. """
+    """
+    Функция проверки JWT-токена пользователя и возврата токена с username пользователя, если все в порядке.
+    :param settings: Объект-настройки для взаимодействия с переменными окружения из .env-файла
+    :param token: JWT-токен пользователя, полученный из cookie-файла
+    :param request: Объект-запрос
+    :param connection: Объект типа Connection (соединение) для взаимодействия с БД
+    :return: username-пользователя, декодированный из токена доступа
+    """
     try:
-        payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
+        payload = jwt.decode(
+            token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
+        )
         username: str = payload.get("sub")
         if username is None:
             raise HTTPException(
@@ -151,17 +143,17 @@ async def verify_token(
     except InvalidTokenError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token is invalid",
+            detail="Токен доступа не действителен",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    user = get_user(token_data.username, session)
+    user = get_user(token_data.username, connection)
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Could not find user",
+            detail="Пользователь не авторизован!",
             headers={"WWW-Authenticate": "Bearer"},
         )
     return token_data
 
 
-router = APIRouter(tags=['Безопасность'])
+ProtectionDep = Annotated[TokenData, Depends(verify_token)]

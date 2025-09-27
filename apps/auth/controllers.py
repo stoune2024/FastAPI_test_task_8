@@ -1,20 +1,10 @@
-from contextlib import asynccontextmanager
-from datetime import datetime, timedelta, timezone
-from typing import Annotated, Optional
-from functools import lru_cache
+from datetime import timedelta
+from typing import Annotated
 
-import jwt
-from fastapi import APIRouter, HTTPException, status, Depends, Request
+from fastapi import HTTPException, status, Depends, Request
 from fastapi.responses import RedirectResponse
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from fastapi.security.utils import get_authorization_scheme_param
-from jwt.exceptions import InvalidTokenError
-from passlib.context import CryptContext
-from pydantic import BaseModel
-from sqlalchemy.exc import InvalidRequestError
-from sqlmodel import create_engine, Session, select, SQLModel
+from fastapi.security import OAuth2PasswordRequestForm
 
-from settings.settings import settings
 from apps.auth.routers import auth_router
 from apps.user.services import ConnectionDep
 from settings.settings import SettingsDep
@@ -23,10 +13,10 @@ from apps.auth.services import authenticate_user, create_access_token
 
 @auth_router.post("/login")
 async def validate_login_form(
-        request: Request,
-        form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
-        connection: ConnectionDep,
-        settings: SettingsDep
+    request: Request,
+    form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
+    connection: ConnectionDep,
+    settings: SettingsDep,
 ):
     """
     Эндпоинт отвечает за обработку данных, пришедших из формы авторизации. Если пользователь успешно прошел
@@ -39,22 +29,23 @@ async def validate_login_form(
     """
     token = await login_for_access_token(request, form_data, connection, settings)
     access_token = token.get("access_token")
-    redirect_url = "/suc_auth"
+    redirect_url = "/auth/suc_auth"
     headers = {"Authorization": f"Bearer {access_token}"}
     response = RedirectResponse(
         redirect_url, status_code=status.HTTP_303_SEE_OTHER, headers=headers
     )
     response.set_cookie(
-        key='access-token', value=access_token, httponly=True, secure=True)
+        key="access-token", value=access_token, httponly=True, secure=True
+    )
     return response
 
 
 @auth_router.post("/token")
 async def login_for_access_token(
-        request: Request,
-        form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
-        connection: ConnectionDep,
-        settings: SettingsDep
+    request: Request,
+    form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
+    connection: ConnectionDep,
+    settings: SettingsDep,
 ):
     """
     Эндпоинт отвечает за аутентификацию пользователя и генерацию JWT-токена. Функция работает как зависимость
@@ -72,11 +63,9 @@ async def login_for_access_token(
             detail="Пользователь не найден",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    access_token_expires = timedelta(minutes=settings.access_token_expire_minutes)
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        settings,
-        data={"sub": user.username},
-        expires_delta=access_token_expires
+        settings, data={"sub": user['username']}, expires_delta=access_token_expires
     )
     return {"access_token": access_token, "token_type": "bearer"}
 
