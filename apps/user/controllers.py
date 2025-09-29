@@ -34,7 +34,7 @@ def create_user(
 def create_users(
     users: Annotated[list[UserCreate], Body()],
     connection: ConnectionDep,
-    protection: ProtectionDep
+    protection: ProtectionDep,
 ):
     """
     Эндпоинт создания группы пользователей
@@ -104,7 +104,6 @@ def read_users_list(
             le=1000,
         ),
     ] = None,
-
 ):
     """
     Эндпоинт получения списка пользователей по списку ID.

@@ -5,7 +5,14 @@ from apps.user.controllers import user_router, middleware_protected_app
 from apps.auth.controllers import auth_router
 
 
-app = FastAPI()
+app = FastAPI(
+    description="""
+    Приложение содержит защищенное подприложение по маршруту /protected_user. Для доступа необходимо получить токен доступа.
+    Среди не защищенных маршрутов находятся:
+    /docs - Документация Swagger
+    /redoc - альтернативная документация
+    """
+)
 
 app.include_router(user_router, prefix="/user")
 app.include_router(auth_router, prefix="/auth")
