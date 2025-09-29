@@ -1,4 +1,4 @@
-from apps.user.routers import user_router, middleware_protected_router
+from apps.user.routers import user_router, middleware_protected_app
 from apps.user.schemas import UserPublic, UserCreate, User
 from apps.user.services import ConnectionDep
 from fastapi import Form, Query, Path, HTTPException, Body
@@ -60,7 +60,7 @@ def create_users(
         return {"message": f"Произошла ошибка: {e}"}
 
 
-@user_router.get("/users/{user_id}", response_model=UserPublic)
+@middleware_protected_app.get("/users/{user_id}", response_model=UserPublic)
 def read_user(
     connection: ConnectionDep,
     user_id: Annotated[int, Path(title="Идентификатор пользователя", ge=0, le=1000)],
@@ -85,6 +85,7 @@ def read_user(
 @user_router.get("/users/", response_model=list[UserPublic])
 def read_users_list(
     connection: ConnectionDep,
+    protection: ProtectionDep,
     start_index: Annotated[
         int,
         Query(
@@ -103,17 +104,20 @@ def read_users_list(
             le=1000,
         ),
     ] = None,
+
 ):
     """
     Эндпоинт получения списка пользователей по списку ID.
+    :param protection: Объект типа TokenData. Нужен для проверки авторизации пользователя
     :param connection: Объект типа Connection (соединение) для взаимодействия с БД
     :param start_index: Значение ID, с которого начинается поиск пользователей
-    :param end_index: Значение ID, которым заканчивается поиск пользователей.
+    :param end_index: Значение ID, которым заканчивается поиск пользователей
     :return: Список пользователей, валидированных моделью UserPublic
     """
     try:
-        users_list = connection.read_users(start_index, end_index)
-        return users_list
+        if protection:
+            users_list = connection.read_users(start_index, end_index)
+            return users_list
     except Exception as e:
         return {"message": f"Возникла ошибка: {e}"}
 
@@ -123,28 +127,31 @@ def update_user(
     user_id: Annotated[int, Path(title="Идентификатор пользователя", ge=0, le=1000)],
     user: Annotated[UserCreate, Form()],
     connection: ConnectionDep,
+    protection: ProtectionDep,
 ):
     """
     Эндпоинт обновления данных о пользователе.
+    :param protection: Объект типа TokenData. Нужен для проверки авторизации пользователя
     :param user_id: Параметр пути, обозначающий идентификатор искомого пользователя.
     :param user: Данные о пользователе, приходящие из HTML формы. Валидируются Pydantic моделью UserUpdate
     :param connection: Объект типа Connection (соединение) для взаимодействия с БД
     :return: Объект пользователь, валидируемый моделью UserPublic
     """
     try:
-        user_from_db = connection.read_user_by_id(user_id)
-        if not user_from_db:
-            raise HTTPException(status_code=404, detail="Пользователь не найден")
-        user_data = user.model_dump(exclude_unset=True)
-        extra_data = {}
-        if "password" in user_data:
-            password = user_data["password"]
-            hashed_password = pwd_context.hash(password)
-            extra_data["hashed_password"] = hashed_password
-        del user_data["password"]
-        user_from_db.update(user_data)
-        user_from_db.update(extra_data)
-        return user_from_db
+        if protection:
+            user_from_db = connection.read_user_by_id(user_id)
+            if not user_from_db:
+                raise HTTPException(status_code=404, detail="Пользователь не найден")
+            user_data = user.model_dump(exclude_unset=True)
+            extra_data = {}
+            if "password" in user_data:
+                password = user_data["password"]
+                hashed_password = pwd_context.hash(password)
+                extra_data["hashed_password"] = hashed_password
+            del user_data["password"]
+            user_from_db.update(user_data)
+            user_from_db.update(extra_data)
+            return user_from_db
     except Exception as e:
         return {"message": f"Возникла ошибка: {e}"}
 
@@ -153,15 +160,18 @@ def update_user(
 def delete_user(
     user_id: Annotated[int, Path(title="Идентификатор пользователя", ge=0, le=1000)],
     connection: ConnectionDep,
+    protection: ProtectionDep,
 ):
     """
     Эндпоинт удаления данных о конкретном пользователе
+    :param protection: Объект типа TokenData. Нужен для проверки авторизации пользователя
     :param user_id: Параметр пути, обозначающий идентификатор искомого пользователя.
     :param connection: Объект типа Connection (соединение) для взаимодействия с БД
     :return: JSON-объект, сообщающий о результате выполнения эндпоинта (возврат пользователя)
     """
     try:
-        connection.delete_user(user_id)
-        return {"message": f"User with ID: {user_id} has been deleted succesfully"}
+        if protection:
+            connection.delete_user(user_id)
+            return {"message": f"User with ID: {user_id} has been deleted succesfully"}
     except Exception as e:
         return {"message": f"Возникла ошибка: {e}"}

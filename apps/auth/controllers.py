@@ -67,9 +67,22 @@ async def login_for_access_token(
     access_token = create_access_token(
         settings, data={"sub": user['username']}, expires_delta=access_token_expires
     )
-    return {"access_token": access_token, "token_type": "bearer"}
+
+    refresh_token_expires = timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    refresh_token = create_access_token(
+        settings, data={"sub": user['username'], "type": "refresh"}, expires_delta=refresh_token_expires
+    )
+    return {
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+        "token_type": "bearer"
+    }
 
 
 @auth_router.get("/suc_auth")
 def successfull_auth():
+    """
+    Эндпоинт для редиректа после успешной авторизации
+    :return: JSON-оповещение
+    """
     return {"message": "Авторизация успешна, токен доступа сохранен в куках!"}
